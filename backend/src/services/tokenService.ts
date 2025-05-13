@@ -14,7 +14,7 @@ interface TokenPayload {
 export const generateTokens = (user: UserDocument) => {
   // Dane do przechowania w tokenie
   const payload: TokenPayload = {
-    id: user._id,
+    id: user._id.toString(),
     email: user.email,
     role: user.role,
   };

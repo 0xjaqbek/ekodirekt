@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import authService from '@/services/authService';
 import { User } from '@/types/user';
+import React from 'react';
 
 // Interface dla stanu autentykacji
 interface AuthState {

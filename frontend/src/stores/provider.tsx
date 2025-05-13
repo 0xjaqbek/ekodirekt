@@ -1,7 +1,9 @@
 import React, { ReactNode } from 'react';
 import { useAuthCheck } from '@/stores/authStore';
 import { useCartProductsCheck } from '@/stores/cartStore';
+import { useCartStore } from '@/stores/cartStore';
 import productService from '@/services/productService';
+import { useFiltersStore } from '@/stores/filtersStore';
 
 interface StoreProvidersProps {
   children: ReactNode;

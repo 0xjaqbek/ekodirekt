@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { PRODUCT_CATEGORIES } from 'shared/constants';
 import { ProductsFilterRequest } from 'shared/types/api';
+import React from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 // Interfejs dla stanu filtrów
 interface FiltersState extends ProductsFilterRequest {

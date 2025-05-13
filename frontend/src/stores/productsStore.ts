@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import productService from '@/services/productService';
 import { ProductResponse, ProductListResponse } from 'shared/types/api';
 import { useFiltersStore } from './filtersStore';
+import React from 'react';
 
 // Interfejs dla stanu produktów
 interface ProductsState {

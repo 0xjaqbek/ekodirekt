@@ -1,88 +1,121 @@
-import { useEffect, useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import authService from '../services/authService';
+import { useAuthStore } from '../stores/authStore';
+import { toast } from 'react-hot-toast';
+import { RegistrationData, LoginData } from '../types/user';
 
-// Interfejs dla danych zalogowanego użytkownika
-interface AuthUser {
-  _id: string;
-  email: string;
-  fullName: string;
-  role: string;
-}
-
-// Hook do zarządzania stanem autentykacji
+/**
+ * Hook do zarządzania autentykacją w aplikacji
+ */
 export const useAuth = () => {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
   const navigate = useNavigate();
   const location = useLocation();
+  
+  // Pobieranie danych ze store'a Zustand
+  const { 
+    user, 
+    token, 
+    isAuthenticated, 
+    loading, 
+    error, 
+    login: loginStore, 
+    register: registerStore, 
+    logout: logoutStore,
+    clearError,
+    checkAuth,
+  } = useAuthStore();
 
-  // Załaduj użytkownika przy montowaniu komponentu
+  // Dodatkowy stan lokalny dla formularzy
+  const [formSubmitting, setFormSubmitting] = useState(false);
+  
+  // Sprawdzanie ważności autentykacji przy montowaniu komponentu
   useEffect(() => {
-    const loadUser = () => {
-      const currentUser = authService.getCurrentUser();
-      setUser(currentUser);
-      setLoading(false);
-    };
+    checkAuth();
+  }, [checkAuth]);
 
-    loadUser();
-  }, []);
+  // Czyszczenie błędów przy zmianie strony
+  useEffect(() => {
+    clearError();
+  }, [location.pathname, clearError]);
 
-  // Funkcja do logowania
-  const login = async (email: string, password: string) => {
+  /**
+   * Logowanie użytkownika
+   */
+  const login = useCallback(async (data: LoginData) => {
     try {
-      setLoading(true);
-      const response = await authService.login({ email, password });
-      setUser(response.user);
+      setFormSubmitting(true);
+      const success = await loginStore(data.email, data.password);
       
-      // Przekieruj na stronę główną lub poprzednią stronę
-      const from = (location.state as any)?.from?.pathname || '/';
-      navigate(from, { replace: true });
+      if (success) {
+        // Pobierz redirect URL z lokalizacji lub przekieruj na stronę główną
+        const from = (location.state as any)?.from?.pathname || '/';
+        toast.success('Zalogowano pomyślnie');
+        navigate(from, { replace: true });
+        return true;
+      } else {
+        toast.error(error || 'Wystąpił błąd podczas logowania');
+        return false;
+      }
+    } catch (err) {
+      toast.error('Wystąpił nieoczekiwany błąd');
+      return false;
+    } finally {
+      setFormSubmitting(false);
+    }
+  }, [loginStore, navigate, location.state, error]);
+
+  /**
+   * Rejestracja użytkownika
+   */
+  const register = useCallback(async (data: RegistrationData) => {
+    try {
+      setFormSubmitting(true);
+      const success = await registerStore(data);
       
-      return { success: true };
-    } catch (error: any) {
-      return {
-        success: false,
-        message: error.response?.data?.message || 'Wystąpił błąd podczas logowania',
-      };
+      if (success) {
+        toast.success('Rejestracja zakończona pomyślnie. Sprawdź swoją skrzynkę email, aby zweryfikować konto.');
+        navigate('/login');
+        return true;
+      } else {
+        toast.error(error || 'Wystąpił błąd podczas rejestracji');
+        return false;
+      }
+    } catch (err) {
+      toast.error('Wystąpił nieoczekiwany błąd');
+      return false;
     } finally {
-      setLoading(false);
+      setFormSubmitting(false);
     }
-  };
+  }, [registerStore, navigate, error]);
 
-  // Funkcja do rejestracji
-  const register = async (userData: any) => {
+  /**
+   * Wylogowanie użytkownika
+   */
+  const logout = useCallback(async () => {
     try {
-      setLoading(true);
-      const response = await authService.register(userData);
-      return { success: true, data: response };
-    } catch (error: any) {
-      return {
-        success: false,
-        message: error.response?.data?.message || 'Wystąpił błąd podczas rejestracji',
-      };
+      setFormSubmitting(true);
+      const success = await logoutStore();
+      
+      if (success) {
+        toast.success('Wylogowano pomyślnie');
+        navigate('/login');
+        return true;
+      } else {
+        toast.error(error || 'Wystąpił błąd podczas wylogowywania');
+        return false;
+      }
+    } catch (err) {
+      toast.error('Wystąpił nieoczekiwany błąd');
+      return false;
     } finally {
-      setLoading(false);
+      setFormSubmitting(false);
     }
-  };
+  }, [logoutStore, navigate, error]);
 
-  // Funkcja do wylogowania
-  const logout = async () => {
-    try {
-      setLoading(true);
-      await authService.logout();
-      setUser(null);
-      navigate('/login');
-      return { success: true };
-    } catch (error) {
-      return { success: false, message: 'Wystąpił błąd podczas wylogowywania' };
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Funkcja do sprawdzania, czy użytkownik ma określoną rolę
-  const hasRole = (roles: string | string[]): boolean => {
+  /**
+   * Funkcja do sprawdzania, czy użytkownik ma określoną rolę
+   */
+  const hasRole = useCallback((roles: string | string[]): boolean => {
     if (!user) return false;
     
     if (Array.isArray(roles)) {
@@ -90,15 +123,20 @@ export const useAuth = () => {
     }
     
     return user.role === roles;
-  };
+  }, [user]);
 
   return {
     user,
-    loading,
+    token,
+    loading: loading || formSubmitting,
+    error,
+    isAuthenticated,
     login,
-    logout,
     register,
+    logout,
     hasRole,
-    isAuthenticated: !!user,
+    clearError,
   };
 };
+
+export default useAuth;

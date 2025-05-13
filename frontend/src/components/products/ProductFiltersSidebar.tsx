@@ -1,5 +1,5 @@
 import React from 'react';
-import { useFiltersStore } from '../../stores/filterStore';
+import { useFiltersStore } from '../../stores/filtersStore';
 import { PRODUCT_CATEGORIES, PRODUCT_SUBCATEGORIES } from 'shared/constants';
 
 interface ProductFiltersSidebarProps {

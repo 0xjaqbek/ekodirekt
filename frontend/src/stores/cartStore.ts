@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { ProductResponse } from 'shared/types/api';
+import React from 'react';
 
 // Interface dla elementu koszyka
 export interface CartItem {
