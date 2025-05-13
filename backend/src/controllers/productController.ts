@@ -6,6 +6,10 @@ import mongoose from 'mongoose';
 import { generateTrackingId } from 'shared/utils';
 import { uploadImagesToCloudinary } from '../services/uploadService';
 
+import fileService from '../services/fileService';
+import imageService from '../services/imageService';
+
+
 /**
  * Pobiera listę produktów z filtrowaniem, sortowaniem i paginacją
  */
@@ -714,6 +718,149 @@ export const getFarmerProducts = async (req: Request, res: Response, next: NextF
     next(error);
   }
 };
+
+/**
+ * Dodaje zdjęcia do produktu z przetwarzaniem
+ * @route POST /api/products/:id/images
+ * @access Private (owner/admin)
+ */
+export const addProductImagesWithProcessing = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const productId = req.params.id;
+      const userId = req.user.id;
+      const userRole = req.user.role;
+      const { processImages = true } = req.body;
+  
+      // Sprawdź, czy przesłano pliki
+      if (!req.files || !Array.isArray(req.files) || req.files.length === 0) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Brak przesłanych plików' 
+        });
+      }
+  
+      // Pobierz produkt
+      const product = await Product.findById(productId);
+      if (!product) {
+        return res.status(404).json({ success: false, message: 'Produkt nie istnieje' });
+      }
+  
+      // Sprawdź uprawnienia (tylko właściciel lub admin może dodawać zdjęcia)
+      if (product.owner.toString() !== userId && userRole !== 'admin') {
+        return res.status(403).json({ 
+          success: false, 
+          message: 'Nie masz uprawnień do modyfikacji tego produktu' 
+        });
+      }
+  
+      // Tablica na przetworzone pliki
+      const processedFiles = [];
+  
+      // Przetwarzaj obrazy, jeśli wymagane
+      if (processImages) {
+        for (const file of req.files as Express.Multer.File[]) {
+          // Przetwarza obraz do WebP, zmniejszając jego rozmiar
+          const processedPath = await imageService.convertToWebP(file.path, 85);
+          
+          // Zapisz oryginalną ścieżkę do usunięcia później
+          const originalPath = file.path;
+          
+          // Zaktualizuj ścieżkę pliku
+          file.path = processedPath;
+          
+          processedFiles.push(originalPath);
+        }
+      }
+  
+      // Wgraj zdjęcia do Cloudinary
+      const imageUrls = await fileService.uploadProductImages(req.files as Express.Multer.File[]);
+  
+      // Usuń oryginalne, nieprzetworzone pliki, jeśli były przetwarzane
+      if (processImages) {
+        processedFiles.forEach(path => {
+          fileService.removeLocalFile(path);
+        });
+      }
+  
+      // Dodaj nowe zdjęcia do istniejących
+      product.images = [...(product.images || []), ...imageUrls];
+  
+      // Zapisz zaktualizowany produkt
+      await product.save();
+  
+      return res.status(200).json({
+        success: true,
+        message: 'Zdjęcia zostały dodane pomyślnie',
+        images: imageUrls,
+        product
+      });
+    } catch (error: any) {
+      next(error);
+    }
+  };
+  
+  /**
+   * Generuje miniaturki dla obrazów produktu
+   * @route POST /api/products/:id/thumbnails
+   * @access Private (owner/admin)
+   */
+  export const generateProductThumbnails = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const productId = req.params.id;
+      const userId = req.user.id;
+      const userRole = req.user.role;
+      const { width = 200, height = 200 } = req.body;
+  
+      // Pobierz produkt
+      const product = await Product.findById(productId);
+      if (!product) {
+        return res.status(404).json({ success: false, message: 'Produkt nie istnieje' });
+      }
+  
+      // Sprawdź uprawnienia
+      if (product.owner.toString() !== userId && userRole !== 'admin') {
+        return res.status(403).json({ 
+          success: false, 
+          message: 'Nie masz uprawnień do modyfikacji tego produktu' 
+        });
+      }
+  
+      // Sprawdź, czy produkt ma zdjęcia
+      if (!product.images || product.images.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Produkt nie ma żadnych zdjęć'
+        });
+      }
+  
+      // Tablica na thumbnails
+      const thumbnails = [];
+  
+      // Pobierz i przetwórz każde zdjęcie
+      for (const imageUrl of product.images) {
+        try {
+          // Pobierz publicId
+          const publicId = fileService.getPublicIdFromUrl(imageUrl);
+          
+          if (publicId) {
+            // Utwórz transformację za pomocą API Cloudinary
+            const thumbnailUrl = imageUrl.replace('/upload/', `/upload/c_fill,w_${width},h_${height}/`);
+            thumbnails.push(thumbnailUrl);
+          }
+        } catch (err) {
+          console.error(`Nie można utworzyć miniaturki dla ${imageUrl}:`, err);
+        }
+      }
+  
+      return res.status(200).json({
+        success: true,
+        message: 'Miniaturki zostały wygenerowane pomyślnie',
+        thumbnails
+      });
+    } catch (error: any) {
+      next(error);
+    }
+  };
 
 // Funkcja pomocnicza do sprawdzania własności produktu
 export const getProductForOwnershipCheck = async (productId: string) => {

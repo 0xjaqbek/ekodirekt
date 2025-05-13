@@ -620,3 +620,124 @@ export const validateRemoveProductImage = [
   // Obsługa błędów walidacji
   handleValidationErrors,
 ];
+
+// Add these functions to your existing validationMiddleware.ts file
+
+/**
+ * Walidacja tworzenia zamówienia
+ */
+export const validateCreateOrder = [
+    // Walidacja elementów zamówienia
+    body('items')
+      .isArray({ min: 1 })
+      .withMessage('Zamówienie musi zawierać co najmniej jeden produkt'),
+    
+    body('items.*.product')
+      .notEmpty()
+      .withMessage('ID produktu jest wymagane')
+      .isMongoId()
+      .withMessage('Nieprawidłowy format ID produktu'),
+    
+    body('items.*.quantity')
+      .isFloat({ min: 0.01 })
+      .withMessage('Ilość musi być liczbą większą od 0'),
+    
+    // Walidacja adresu dostawy
+    body('shippingAddress.street')
+      .notEmpty()
+      .withMessage('Ulica jest wymagana')
+      .isLength({ min: 2, max: 100 })
+      .withMessage('Ulica musi zawierać od 2 do 100 znaków'),
+    
+    body('shippingAddress.city')
+      .notEmpty()
+      .withMessage('Miasto jest wymagane')
+      .isLength({ min: 2, max: 50 })
+      .withMessage('Miasto musi zawierać od 2 do 50 znaków'),
+    
+    body('shippingAddress.postalCode')
+      .notEmpty()
+      .withMessage('Kod pocztowy jest wymagany')
+      .matches(/^\d{2}-\d{3}$/)
+      .withMessage('Nieprawidłowy format kodu pocztowego (wymagany format: XX-XXX)'),
+    
+    body('shippingAddress.country')
+      .notEmpty()
+      .withMessage('Kraj jest wymagany')
+      .isLength({ min: 2, max: 50 })
+      .withMessage('Kraj musi zawierać od 2 do 50 znaków'),
+    
+    // Obsługa błędów walidacji
+    handleValidationErrors,
+  ];
+  
+  /**
+   * Walidacja aktualizacji statusu zamówienia
+   */
+  export const validateOrderStatusUpdate = [
+    // Walidacja statusu
+    body('status')
+      .notEmpty()
+      .withMessage('Status jest wymagany')
+      .isIn(ORDER_STATUSES)
+      .withMessage('Nieprawidłowy status zamówienia'),
+    
+    // Walidacja notatki (opcjonalna)
+    body('note')
+      .optional()
+      .isLength({ max: 200 })
+      .withMessage('Notatka może zawierać maksymalnie 200 znaków'),
+    
+    // Obsługa błędów walidacji
+    handleValidationErrors,
+  ];
+  
+  /**
+   * Walidacja aktualizacji statusu płatności
+   */
+  export const validatePaymentStatusUpdate = [
+    // Walidacja statusu płatności
+    body('paymentStatus')
+      .notEmpty()
+      .withMessage('Status płatności jest wymagany')
+      .isIn(PAYMENT_STATUSES)
+      .withMessage('Nieprawidłowy status płatności'),
+    
+    // Walidacja ID płatności (opcjonalna)
+    body('paymentId')
+      .optional()
+      .isString()
+      .withMessage('ID płatności musi być ciągiem znaków'),
+    
+    // Obsługa błędów walidacji
+    handleValidationErrors,
+  ];
+  
+  /**
+   * Walidacja anulowania zamówienia
+   */
+  export const validateCancelOrder = [
+    // Walidacja powodu anulowania (opcjonalna)
+    body('reason')
+      .optional()
+      .isLength({ max: 200 })
+      .withMessage('Powód anulowania może zawierać maksymalnie 200 znaków'),
+    
+    // Obsługa błędów walidacji
+    handleValidationErrors,
+  ];
+
+  /**
+ * Walidacja tworzenia intencji płatności
+ */
+export const validateCreatePaymentIntent = [
+    // Walidacja ID zamówienia
+    body('orderId')
+      .notEmpty()
+      .withMessage('ID zamówienia jest wymagane')
+      .isMongoId()
+      .withMessage('Nieprawidłowy format ID zamówienia'),
+    
+    // Obsługa błędów walidacji
+    handleValidationErrors,
+  ];

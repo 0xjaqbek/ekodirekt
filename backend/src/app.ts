@@ -8,14 +8,20 @@ import xss from 'xss-clean';
 import compression from 'compression';
 import hpp from 'hpp';
 import { rateLimit } from 'express-rate-limit';
+import fileRoutes from './routes/fileRoutes';
+import * as fileController from './controllers/fileController';
 import path from 'path';
-
 import authRoutes from './routes/authRoutes';
 import userRoutes from './routes/userRoutes';
 import productRoutes from './routes/productRoutes';
+import orderRoutes from './routes/orderRoutes';
+import paymentRoutes from './routes/paymentRoutes';
+
 // Importuj inne trasy
 
 import { handleMulterErrors } from './middleware/uploadMiddleware';
+import { handleUploadErrors } from './middleware/uploadMiddleware';
+
 
 // Middleware do obsługi błędów
 const errorHandler = (err: any, req: Request, res: Response, next: NextFunction) => {
@@ -39,6 +45,17 @@ const errorHandler = (err: any, req: Request, res: Response, next: NextFunction)
 
 const app = express();
 
+app.use(handleUploadErrors);
+
+// Serwowanie statycznych plików z katalogu uploads
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
+// Trasy dla obsługi plików
+app.use('/api/files', fileRoutes);
+
+// Trasy dla obsługi serwowania plików statycznych
+app.get('/uploads/:type/:filename', fileController.serveStaticFile);
+
 // Ustawienia bezpieczeństwa
 app.use(helmet()); // Zabezpieczenia nagłówków HTTP
 app.use(mongoSanitize()); // Zapobiega atakom NoSQL injection
@@ -53,6 +70,8 @@ const limiter = rateLimit({
   legacyHeaders: false,
 });
 app.use('/api/', limiter);
+
+app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
 
 // Middleware parsowania
 app.use(express.json({ limit: '10kb' })); // Limit wielkości JSON
@@ -94,6 +113,10 @@ app.use('*', (req: Request, res: Response) => {
     message: `Nie znaleziono: ${req.originalUrl}`,
   });
 });
+
+app.use('/api/orders', orderRoutes);
+
+app.use('/api/payments', paymentRoutes);
 
 // Middleware obsługi błędów
 app.use(errorHandler);
