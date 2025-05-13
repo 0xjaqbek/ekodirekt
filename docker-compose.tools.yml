@@ -1,0 +1,65 @@
+# Używaj tego pliku do konfiguracji Dockera dla narzędzi pomocniczych,
+# które uruchamiają jednorazowe zadania, np. migracje bazy danych.
+
+version: '3.8'
+
+services:
+  # Narzędzie do inicjalizacji bazy danych (przykład)
+  db-init:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.dev
+    container_name: ekodirekt-db-init
+    volumes:
+      - ./backend/src:/app/src
+      - ./shared/src:/shared/src
+    environment:
+      - NODE_ENV=development
+      - MONGODB_URI=mongodb://mongodb:27017/ekodirekt
+    command: npm run db:init
+    depends_on:
+      - mongodb
+    networks:
+      - ekodirekt-network
+
+  # Narzędzie do uruchamiania migracji (przykład)
+  db-migrate:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.dev
+    container_name: ekodirekt-db-migrate
+    volumes:
+      - ./backend/src:/app/src
+      - ./shared/src:/shared/src
+    environment:
+      - NODE_ENV=development
+      - MONGODB_URI=mongodb://mongodb:27017/ekodirekt
+    command: npm run db:migrate
+    depends_on:
+      - mongodb
+    networks:
+      - ekodirekt-network
+
+  # Serwis MongoDB (taki sam jak w głównym docker-compose.yml)
+  mongodb:
+    image: mongo:6.0
+    container_name: ekodirekt-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=ekodirekt
+    networks:
+      - ekodirekt-network
+
+volumes:
+  mongodb_data:
+    name: ekodirekt-mongodb-data
+    external: true
+
+networks:
+  ekodirekt-network:
+    name: ekodirekt-network
+    external: true

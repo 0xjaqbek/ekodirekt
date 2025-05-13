@@ -1,0 +1,81 @@
+version: '3.8'
+
+services:
+  # Baza danych MongoDB
+  mongodb:
+    image: mongo:6.0
+    container_name: ekodirekt-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=ekodirekt
+    networks:
+      - ekodirekt-network
+
+  # Backend - Node.js/Express
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.dev
+    container_name: ekodirekt-backend
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./backend/src:/app/src
+      - ./shared/src:/shared/src
+      - backend_node_modules:/app/node_modules
+      - shared_node_modules:/shared/node_modules
+    environment:
+      - NODE_ENV=development
+      - PORT=5000
+      - MONGODB_URI=mongodb://mongodb:27017/ekodirekt
+      - JWT_SECRET=your_jwt_secret_for_development
+      - JWT_EXPIRE=7d
+      - FRONTEND_URL=http://localhost:3000
+    depends_on:
+      - mongodb
+    networks:
+      - ekodirekt-network
+
+  # Frontend - React/Vite
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile.dev
+    container_name: ekodirekt-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+      - ./frontend/index.html:/app/index.html
+      - ./shared/src:/shared/src
+      - frontend_node_modules:/app/node_modules
+      - shared_node_modules:/shared/node_modules
+    environment:
+      - NODE_ENV=development
+      - VITE_API_URL=http://localhost:5000/api
+    depends_on:
+      - backend
+    networks:
+      - ekodirekt-network
+
+volumes:
+  mongodb_data:
+    name: ekodirekt-mongodb-data
+  backend_node_modules:
+    name: ekodirekt-backend-node_modules
+  frontend_node_modules:
+    name: ekodirekt-frontend-node_modules
+  shared_node_modules:
+    name: ekodirekt-shared-node_modules
+
+networks:
+  ekodirekt-network:
+    name: ekodirekt-network
+    driver: bridge

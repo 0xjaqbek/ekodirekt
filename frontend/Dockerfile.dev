@@ -1,0 +1,46 @@
+# Najpierw zbuduj obraz dla shared
+FROM node:18-alpine AS shared
+
+# Ustaw katalog roboczy
+WORKDIR /shared
+
+# Kopiowanie plików package.json i tsconfig.json
+COPY shared/package*.json ./
+COPY shared/tsconfig*.json ./
+
+# Instalacja zależności
+RUN npm install
+
+# Kopiowanie kodu źródłowego shared
+COPY shared/src ./src
+
+# Budowanie modułu shared
+RUN npm run build
+
+# Etap budowania frontendu
+FROM node:18-alpine
+
+# Ustaw katalog roboczy
+WORKDIR /app
+
+# Kopiowanie plików konfiguracyjnych
+COPY frontend/package*.json ./
+COPY frontend/tsconfig*.json ./
+
+# Instalacja zależności
+RUN npm install
+
+# Kopiowanie modułu shared
+COPY --from=shared /shared /shared
+
+# Kopiowanie kodu źródłowego frontend
+COPY frontend/ ./
+
+# Przekierowanie portów
+EXPOSE 3000
+
+# Zmienne środowiskowe dla trybu deweloperskiego
+ENV NODE_ENV=development
+
+# Uruchomienie serwera w trybie deweloperskim z hot-reloadingiem
+CMD ["npm", "run", "dev", "--", "--host"]
